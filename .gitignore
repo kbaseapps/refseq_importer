@@ -1,0 +1,4 @@
+test_local
+sdk.cfg
+lib/refseq_importer/utils/*.tsv
+*bak-*
