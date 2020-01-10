@@ -2,6 +2,8 @@
 #BEGIN_HEADER
 import logging
 import os
+import json
+import requests
 
 from installed_clients.GenomeFileUtilClient import GenomeFileUtil
 #END_HEADER
@@ -58,13 +60,38 @@ class refseq_importer:
                 url = cols[0]
                 accession = cols[1]
                 taxid = cols[2]
+                source = cols[3]
+                # See if this accession already exists in KBase
+                print('accession is', accession)
+                reqbody = {
+                    'method': 'get_objects2',
+                    'params': [{
+                        'objects': [{
+                            'wsid': params['wsid'],
+                            'name': accession,
+                        }],
+                        'no_data': 1
+                    }]
+                }
+                endpoint = os.environ.get('KBASE_ENDPOINT', 'https://ci.kbase.us/services').strip('/')
+                ws_url = endpoint + '/ws'
+                resp = requests.post(ws_url, data=json.dumps(reqbody))
+                assm = None
+                if resp.ok:
+                    info = resp.json()['result'][0]['data'][0]['info']
+                    metadata = info[-1]
+                    assm = metadata['Assembly Object']
+                else:
+                    print('No existing genome object found')
                 gfu.genbank_to_genome({
                     'file': {
                         'ftp_url': url
                     },
+                    'source': source,
                     'taxon_id': str(taxid),
                     'genome_name': accession,
-                    'workspace_name': params['workspace_name']
+                    'workspace_name': params['workspace_name'],
+                    'use_existing_assembly': assm
                 })
         output = {}  # type: dict
         #END run_refseq_importer

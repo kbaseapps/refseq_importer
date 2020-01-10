@@ -64,7 +64,8 @@ class refseq_importerTest(unittest.TestCase):
         # Check returned data with
         # self.assertEqual(ret[...], ...) or other unittest methods
         ret = self.serviceImpl.run_refseq_importer(self.ctx, {
-            'tsv_path': "/kb/module/lib/refseq_importer/utils/refseq_full_three.tsv",
-            'workspace_name': "jayrbolton:narrative_1574286995467",
+            'tsv_path': "/kb/module/lib/refseq_importer/utils/refseq_full.tsv",
+            'workspace_name': "jayrbolton:narrative_1528306445083",
+            'wsid': 33192
         })
         print('ret', ret)

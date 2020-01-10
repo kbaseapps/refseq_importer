@@ -15,4 +15,6 @@ cd lib/refseq_importer/utils
 python -m list_refseq_genomes
 ```
 
+This will generate a `refseq_full.tsv` file in this directory.
+
 Then run `kb-sdk test` to actually perform the import. Don't forget to run `make` first and change your settings in `test_local/test.cfg`.

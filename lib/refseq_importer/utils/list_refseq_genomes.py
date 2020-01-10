@@ -20,9 +20,10 @@ def retr_callback(line):
     ftp_url = cols[19]
     _id = cols[0]
     tax_id = cols[5]
+    source = "refseq " + cols[4]
     dirname = ftp_url.split('/')[-1]
     full_url = f"{ftp_url}/{dirname}_genomic.gbff.gz"
-    line = f"{full_url}\t{_id}\t{tax_id}\n"
+    line = f"{full_url}\t{_id}\t{tax_id}\t{source}\n"
     # Preferably we only open the file once and keep appending, but not sure
     # how to do that in this callback
     with open(_OUT_PATH, "a") as fd:
@@ -45,3 +46,4 @@ def list_refseq_genomes():
 
 if __name__ == '__main__':
     list_refseq_genomes()
+    print(f'Successfully wrote {_OUT_PATH}')
