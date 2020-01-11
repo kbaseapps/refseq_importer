@@ -60,9 +60,8 @@ class refseq_importer:
                 url = cols[0]
                 accession = cols[1]
                 taxid = cols[2]
-                source = cols[3]
+                source = "refseq " + cols[3]
                 # See if this accession already exists in KBase
-                print('accession is', accession)
                 reqbody = {
                     'method': 'get_objects2',
                     'params': [{
@@ -79,6 +78,10 @@ class refseq_importer:
                 assm = None
                 if resp.ok:
                     info = resp.json()['result'][0]['data'][0]['info']
+                    kbtype = info[2]
+                    if kbtype == 'KBaseGenomes.Genome-17.0':
+                        print(f'Already imported {accession}')
+                        continue
                     metadata = info[-1]
                     assm = metadata['Assembly Object']
                 else:
