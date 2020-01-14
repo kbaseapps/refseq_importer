@@ -21,4 +21,6 @@ RUN make all
 
 ENTRYPOINT [ "./scripts/entrypoint.sh" ]
 
+ENV PYTHONUNBUFFERED=true
+
 CMD [ ]

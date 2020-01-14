@@ -59,6 +59,7 @@ class refseq_importer:
                 cols = line.split("\t")
                 url = cols[0]
                 accession = cols[1]
+                print(f'--- Checking accession {accession}')
                 taxid = cols[2]
                 source = "refseq " + cols[3]
                 # See if this accession already exists in KBase
@@ -74,6 +75,7 @@ class refseq_importer:
                 }
                 endpoint = os.environ.get('KBASE_ENDPOINT', 'https://ci.kbase.us/services').strip('/')
                 ws_url = endpoint + '/ws'
+                print(f"Fetching object {params['wsid']} from the workspace")
                 resp = requests.post(ws_url, data=json.dumps(reqbody))
                 assm = None
                 if resp.ok:
@@ -83,19 +85,23 @@ class refseq_importer:
                         print(f'Already imported {accession}')
                         continue
                     metadata = info[-1]
-                    assm = metadata['Assembly Object']
+                    assm = metadata.get('Assembly Object')
                 else:
                     print('No existing genome object found')
-                gfu.genbank_to_genome({
-                    'file': {
-                        'ftp_url': url
-                    },
-                    'source': source,
-                    'taxon_id': str(taxid),
-                    'genome_name': accession,
-                    'workspace_name': params['workspace_name'],
-                    'use_existing_assembly': assm
-                })
+                print(f'Running gfu.genbank_to_genome for {accession} with assembly {assm}')
+                try:
+                    result = gfu.genbank_to_genome({
+                        'file': {'ftp_url': url},
+                        'source': source,
+                        'taxon_id': str(taxid),
+                        'genome_name': accession,
+                        'workspace_name': params['workspace_name'],
+                        'use_existing_assembly': assm
+                    })
+                except Exception as err:
+                    print(f'Error running genbank_to_genome for {accession}: {err}')
+                    continue
+                print(f'Done running genbank_to_genome for {accession}: {result}')
         output = {}  # type: dict
         #END run_refseq_importer
 

@@ -45,5 +45,6 @@ def list_refseq_genomes():
 
 
 if __name__ == '__main__':
+    print('Running...')
     list_refseq_genomes()
     print(f'Successfully wrote {_OUT_PATH}')
