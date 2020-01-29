@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
+
 #BEGIN_HEADER
 import logging
 import os
 import json
 import requests
+import shutil
 
 from installed_clients.GenomeFileUtilClient import GenomeFileUtil
 #END_HEADER
@@ -54,7 +56,9 @@ class refseq_importer:
         # return variables are: output
         #BEGIN run_refseq_importer
         gfu = GenomeFileUtil(self.callback_url)
-        with open(params['tsv_path']) as fd:
+        finished_path_tmp = '/tmp/finished.tsv'
+        finished_path_final = os.path.join(self.shared_folder, 'finished.tsv')
+        with open(params['tsv_path']) as fd, open(finished_path_tmp, 'a') as fd_done:
             for line in fd.readlines():
                 cols = line.split("\t")
                 url = cols[0]
@@ -83,6 +87,8 @@ class refseq_importer:
                     kbtype = info[2]
                     if kbtype == 'KBaseGenomes.Genome-17.0':
                         print(f'Already imported {accession}')
+                        fd_done.write(accession + '\n')
+                        fd_done.flush()
                         continue
                     metadata = info[-1]
                     assm = metadata.get('Assembly Object')
@@ -102,6 +108,12 @@ class refseq_importer:
                     print(f'Error running genbank_to_genome for {accession}: {err}')
                     continue
                 print(f'Done running genbank_to_genome for {accession}: {result}')
+                fd_done.write(accession + '\n')
+                fd_done.flush()
+                # Delete all data in the temp directory to keep filespace down.
+                shutil.rmtree('/kb/module/work/tmp')
+                os.makedirs('/kb/module/work/tmp')
+        shutil.move(finished_path_tmp, finished_path_final)
         output = {}  # type: dict
         #END run_refseq_importer
 
