@@ -1,5 +1,10 @@
 test_local
+/.mypy_cache
 sdk.cfg
+# Refseq accessions
+refseq_full.tsv
+# LevelDB files
+/import_state/
 lib/refseq_importer/utils/*.tsv
 *bak-*
 run.log

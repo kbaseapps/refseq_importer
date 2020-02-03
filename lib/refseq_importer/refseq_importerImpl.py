@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-
 #BEGIN_HEADER
+import sys
+import plyvel
 import logging
 import os
 import json
@@ -8,6 +9,7 @@ import requests
 import shutil
 
 from installed_clients.GenomeFileUtilClient import GenomeFileUtil
+from refseq_importer.utils.db_update_entries import db_set_done, db_set_error
 #END_HEADER
 
 
@@ -27,8 +29,8 @@ class refseq_importer:
     # the latter method is running.
     ######################################### noqa
     VERSION = "0.0.1"
-    GIT_URL = ""
-    GIT_COMMIT_HASH = ""
+    GIT_URL = "https://github.com/kbaseapps/refseq_importer"
+    GIT_COMMIT_HASH = "82d0dcc15d0063b3f2558e49cdf31f79876d105b"
 
     #BEGIN_CLASS_HEADER
     #END_CLASS_HEADER
@@ -56,64 +58,67 @@ class refseq_importer:
         # return variables are: output
         #BEGIN run_refseq_importer
         gfu = GenomeFileUtil(self.callback_url)
-        finished_path_tmp = '/tmp/finished.tsv'
-        finished_path_final = os.path.join(self.shared_folder, 'finished.tsv')
-        with open(params['tsv_path']) as fd, open(finished_path_tmp, 'a') as fd_done:
-            for line in fd.readlines():
-                cols = line.split("\t")
-                url = cols[0]
-                accession = cols[1]
-                print(f'--- Checking accession {accession}')
-                taxid = cols[2]
-                source = "refseq " + cols[3]
-                # See if this accession already exists in KBase
-                reqbody = {
-                    'method': 'get_objects2',
-                    'params': [{
-                        'objects': [{
-                            'wsid': params['wsid'],
-                            'name': accession,
-                        }],
-                        'no_data': 1
-                    }]
-                }
-                endpoint = os.environ.get('KBASE_ENDPOINT', 'https://ci.kbase.us/services').strip('/')
-                ws_url = endpoint + '/ws'
-                print(f"Fetching object {params['wsid']} from the workspace")
-                resp = requests.post(ws_url, data=json.dumps(reqbody))
-                assm = None
-                if resp.ok:
-                    info = resp.json()['result'][0]['data'][0]['info']
-                    kbtype = info[2]
-                    if kbtype == 'KBaseGenomes.Genome-17.0':
-                        print(f'Already imported {accession}')
-                        fd_done.write(accession + '\n')
-                        fd_done.flush()
-                        continue
-                    metadata = info[-1]
-                    assm = metadata.get('Assembly Object')
-                else:
-                    print('No existing genome object found')
-                print(f'Running gfu.genbank_to_genome for {accession} with assembly {assm}')
-                try:
-                    result = gfu.genbank_to_genome({
-                        'file': {'ftp_url': url},
-                        'source': source,
-                        'taxon_id': str(taxid),
-                        'genome_name': accession,
-                        'workspace_name': params['workspace_name'],
-                        'use_existing_assembly': assm
-                    })
-                except Exception as err:
-                    print(f'Error running genbank_to_genome for {accession}: {err}')
+        db_path = '/data/import_state'
+        db = plyvel.DB(db_path)
+        for (accession, json_bytes) in db:
+            json_dict = json.loads(json_bytes.decode())
+            if json_dict['status'] == 'finished':
+                print(f'{accession} already completed')
+                continue
+            url = json_dict['url']
+            accession = json_dict['acc']
+            taxid = json_dict['tax']
+            source = "refseq " + json_dict['src']
+            print(f'Checking accession {accession}')
+            # See if this accession already exists in KBase
+            reqbody = {
+                'method': 'get_objects2',
+                'params': [{
+                    'objects': [{
+                        'wsid': params['wsid'],
+                        'name': accession,
+                    }],
+                    'no_data': 1
+                }]
+            }
+            endpoint = os.environ.get('KBASE_ENDPOINT', 'https://ci.kbase.us/services').strip('/')
+            ws_url = endpoint + '/ws'
+            resp = requests.post(ws_url, data=json.dumps(reqbody))
+            assm = None
+            if resp.ok:
+                info = resp.json()['result'][0]['data'][0]['info']
+                kbtype = info[2]
+                if kbtype == 'KBaseGenomes.Genome-17.0':
+                    print(f'Already imported {accession}')
+                    db_set_done(db, accession)
                     continue
-                print(f'Done running genbank_to_genome for {accession}: {result}')
-                fd_done.write(accession + '\n')
-                fd_done.flush()
-                # Delete all data in the temp directory to keep filespace down.
-                shutil.rmtree('/kb/module/work/tmp')
-                os.makedirs('/kb/module/work/tmp')
-        shutil.move(finished_path_tmp, finished_path_final)
+                metadata = info[-1]
+                assm = metadata.get('Assembly Object')
+            else:
+                print('No existing genome object found')
+            print(f'Running gfu.genbank_to_genome for {accession} with assembly {assm}')
+            try:
+                result = gfu.genbank_to_genome({
+                    'file': {'ftp_url': url},
+                    'source': source,
+                    'taxon_id': str(taxid),
+                    'genome_name': accession,
+                    'workspace_name': params['workspace_name'],
+                    'use_existing_assembly': assm
+                })
+            except Exception as err:
+                msg = f'Error running genbank_to_genome for {accession}: {err}'
+                sys.stderr.write(msg + '\n')
+                db_set_error(db, accession, msg)
+                continue
+            print(f'Done running genbank_to_genome for {accession}: {result}')
+            db_set_done(db, accession)
+            # Delete all data in the temp directory to keep filespace down.
+            print('Removing and recreating the temp directory..')
+            shutil.rmtree(self.shared_folder)
+            os.makedirs(self.shared_folder, exist_ok=True)
+            print('Removed and recreated the temp directory')
+        # Clean up subjob files to keep disk space low
         output = {}  # type: dict
         #END run_refseq_importer
 

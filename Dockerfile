@@ -12,12 +12,14 @@ MAINTAINER KBase Developer
 # -----------------------------------------
 
 COPY ./ /kb/module
-RUN mkdir -p /kb/module/work
-RUN chmod -R a+rw /kb/module
+RUN mkdir -p /kb/module/work && mkdir /data
+RUN chmod -R a+rw /kb/module && chmod -R a+rw /data
 
 WORKDIR /kb/module
 
 RUN make all
+
+RUN pip install --upgrade pip plyvel
 
 ENTRYPOINT [ "./scripts/entrypoint.sh" ]
 

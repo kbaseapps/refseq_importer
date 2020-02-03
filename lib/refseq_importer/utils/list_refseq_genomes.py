@@ -8,7 +8,7 @@ _CATEGORIES = ["archaea", "bacteria", "plant", "fungi"]
 _HOST = "ftp.ncbi.nlm.nih.gov"
 _BASE_PATH = "/genomes/refseq"
 _SUMMARY_FILENAME = "assembly_summary.txt"
-_OUT_PATH = "refseq_full.tsv"
+_OUT_PATH = "/data/refseq_full.tsv"
 
 
 def retr_callback(line):
@@ -47,4 +47,3 @@ def list_refseq_genomes():
 if __name__ == '__main__':
     print('Running...')
     list_refseq_genomes()
-    print(f'Successfully wrote {_OUT_PATH}')

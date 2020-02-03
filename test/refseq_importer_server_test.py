@@ -7,17 +7,29 @@ from configparser import ConfigParser
 from refseq_importer.refseq_importerImpl import refseq_importer
 from refseq_importer.refseq_importerServer import MethodContext
 from refseq_importer.authclient import KBaseAuth as _KBaseAuth
+from refseq_importer.utils.init_db import init_db
 
 from installed_clients.WorkspaceClient import Workspace
 
 
-class refseq_importerTest(unittest.TestCase):
+class RefseqImporterTest(unittest.TestCase):
+
+    # Type hints for Mypy
+    cfg = {}  # type: dict
+    ctx = MethodContext(None)
+    wsURL: str
+    scratch: str
+    wsClient: Workspace
+    serviceImpl: refseq_importer
+    callback_url: str
+    wsName: str
 
     @classmethod
     def setUpClass(cls):
         token = os.environ.get('KB_AUTH_TOKEN', None)
         config_file = os.environ.get('KB_DEPLOYMENT_CONFIG', None)
-        cls.cfg = {}
+        if not config_file:
+            raise RuntimeError("Could not load config file")
         config = ConfigParser()
         config.read(config_file)
         for nameval in config.items('refseq_importer'):
@@ -45,6 +57,10 @@ class refseq_importerTest(unittest.TestCase):
         suffix = int(time.time() * 1000)
         cls.wsName = "test_ContigFilter_" + str(suffix)
         ret = cls.wsClient.create_workspace({'workspace': cls.wsName})  # noqa
+        # Initialize the local state database
+        # Does not overwrite previous entries
+        print('Initializing the local state database...')
+        init_db()
 
     @classmethod
     def tearDownClass(cls):
@@ -64,7 +80,6 @@ class refseq_importerTest(unittest.TestCase):
         # Check returned data with
         # self.assertEqual(ret[...], ...) or other unittest methods
         ret = self.serviceImpl.run_refseq_importer(self.ctx, {
-            'tsv_path': "/kb/module/lib/refseq_importer/utils/refseq_full.tsv",
             'workspace_name': "ReferenceDataManager",
             'wsid': 15792
         })
