@@ -110,6 +110,10 @@ class refseq_importer:
                 msg = f'Error running genbank_to_genome for {accession}: {err}'
                 sys.stderr.write(msg + '\n')
                 db_set_error(db, accession, msg)
+                print('Removing and recreating the temp directory..')
+                shutil.rmtree(self.shared_folder)
+                os.makedirs(self.shared_folder, exist_ok=True)
+                print('Removed and recreated the temp directory')
                 continue
             print(f'Done running genbank_to_genome for {accession}: {result}')
             db_set_done(db, accession)
