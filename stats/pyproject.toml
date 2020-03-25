@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "refseq_importer_stats"
+version = "0.0.1"
+description = ""
+authors = ["Jay R Bolton <jayrbolton@gmail.com>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.7"
+kbase-workspace-client = "0.0.1"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
