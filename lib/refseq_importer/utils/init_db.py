@@ -2,8 +2,8 @@ import json
 import plyvel
 from refseq_importer.utils.list_refseq_genomes import list_refseq_genomes
 
-_DB_PATH = '/data/import_state'
-_TSV_PATH = '/data/refseq_full.tsv'
+_DB_PATH = '/kb/module/work/import_state'
+_TSV_PATH = '/kb/module/work/refseq_full.tsv'
 
 
 def init_db():

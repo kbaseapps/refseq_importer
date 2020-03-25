@@ -1,15 +1,17 @@
 # -*- coding: utf-8 -*-
 #BEGIN_HEADER
-import sys
 import plyvel
 import logging
 import os
 import json
-import requests
 import shutil
+import concurrent.futures
+
+MAX_WORKERS = int(os.environ.get('MAX_THREAD_WORKERS', 5))
 
 from installed_clients.GenomeFileUtilClient import GenomeFileUtil
-from refseq_importer.utils.db_update_entries import db_set_done, db_set_error
+from refseq_importer.utils.run_import import run_import
+from refseq_importer.utils.db_update_entries import db_set_error, db_set_done
 #END_HEADER
 
 
@@ -57,72 +59,55 @@ class refseq_importer:
         # ctx is the context object
         # return variables are: output
         #BEGIN run_refseq_importer
-        gfu = GenomeFileUtil(self.callback_url)
-        db_path = '/data/import_state'
+        db_path = '/kb/module/work/import_state'
         db = plyvel.DB(db_path)
-        for (accession, json_bytes) in db:
-            json_dict = json.loads(json_bytes.decode())
-            if json_dict['status'] == 'finished':
-                print(f'{accession} already completed')
-                continue
-            url = json_dict['url']
-            accession = json_dict['acc']
-            taxid = json_dict['tax']
-            source = "refseq " + json_dict['src']
-            print(f'Checking accession {accession}')
-            # See if this accession already exists in KBase
-            reqbody = {
-                'method': 'get_objects2',
-                'params': [{
-                    'objects': [{
-                        'wsid': params['wsid'],
-                        'name': accession,
-                    }],
-                    'no_data': 1
-                }]
-            }
-            endpoint = os.environ.get('KBASE_ENDPOINT', 'https://ci.kbase.us/services').strip('/')
-            ws_url = endpoint + '/ws'
-            resp = requests.post(ws_url, data=json.dumps(reqbody))
-            assm = None
-            if resp.ok:
-                info = resp.json()['result'][0]['data'][0]['info']
-                kbtype = info[2]
-                if kbtype == 'KBaseGenomes.Genome-17.0':
-                    print(f'Already imported {accession}')
-                    db_set_done(db, accession)
+        batch = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            for (accession, json_bytes) in db:
+                accession = accession.decode()
+                json_dict = json.loads(json_bytes.decode())
+                if json_dict['status'] == 'finished':
+                    print(f'{accession} already completed')
                     continue
-                metadata = info[-1]
-                assm = metadata.get('Assembly Object')
-            else:
-                print('No existing genome object found')
-            print(f'Running gfu.genbank_to_genome for {accession} with assembly {assm}')
-            try:
-                result = gfu.genbank_to_genome({
-                    'file': {'ftp_url': url},
-                    'source': source,
-                    'taxon_id': str(taxid),
-                    'genome_name': accession,
-                    'workspace_name': params['workspace_name'],
-                    'use_existing_assembly': assm
-                })
-            except Exception as err:
-                msg = f'Error running genbank_to_genome for {accession}: {err}'
-                sys.stderr.write(msg + '\n')
-                db_set_error(db, accession, msg)
-                print('Removing and recreating the temp directory..')
-                shutil.rmtree(self.shared_folder)
-                os.makedirs(self.shared_folder, exist_ok=True)
-                print('Removed and recreated the temp directory')
-                continue
-            print(f'Done running genbank_to_genome for {accession}: {result}')
-            db_set_done(db, accession)
-            # Delete all data in the temp directory to keep filespace down.
-            print('Removing and recreating the temp directory..')
-            shutil.rmtree(self.shared_folder)
-            os.makedirs(self.shared_folder, exist_ok=True)
-            print('Removed and recreated the temp directory')
-        # Clean up subjob files to keep disk space low
+                if json_dict['status'] == 'error':
+                    print(f'{accession} had an error before: {json_bytes}')
+                    continue
+                else:
+                    batch.append((accession, json_dict))
+                if len(batch) >= 4:
+                    print(f'Submitting import jobs for: {batch}"')
+                    # List of pairs of (accession, future)
+                    futures = [
+                        (
+                            accession,
+                            executor.submit(
+                                run_import,
+                                self.callback_url,
+                                self.shared_folder,
+                                params,
+                                accession,
+                                json_dict
+                            )
+                        )
+                        for (accession, json_dict)
+                        in batch
+                    ]
+                    for (accession, future) in futures:
+                        try:
+                            future.result(timeout=600)
+                            db_set_done(db, accession)
+                            print(f"{accession} successfully completed")
+                        except concurrent.futures.TimeoutError:
+                            db_set_error(db, accession, "Timed out")
+                            print(f"{accession} timed out and failed to import.")
+                        except Exception as err:
+                            db_set_error(db, accession, str(err))
+                            print(f"{accession} failed to import with error: {err}.")
+                    batch = []
+                    # Keep disk usage low
+                    print('Removing and recreating the temp directory..')
+                    shutil.rmtree(self.shared_folder)
+                    os.makedirs(self.shared_folder, exist_ok=True)
         output = {}  # type: dict
         #END run_refseq_importer
 

@@ -9,3 +9,4 @@ lib/refseq_importer/utils/*.tsv
 *bak-*
 run.log
 *.pyc
+/test.log
