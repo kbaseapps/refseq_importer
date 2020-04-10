@@ -116,7 +116,7 @@ class refseq_importer:
         # return variables are: output
         #BEGIN run_single_import
         # Validation is minimal. This module is for internal developer use.
-        for key in ['wsid', 'wsid', 'objref', 'import_data']:
+        for key in ['wsid', 'wsname', 'import_data']:
             if key not in params:
                 raise RuntimeError(f'{key} required in params')
         wsid = params['wsid']
