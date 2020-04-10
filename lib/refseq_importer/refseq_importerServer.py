@@ -342,6 +342,10 @@ class Application(object):
                              name='refseq_importer.run_refseq_importer',
                              types=[dict])
         self.method_authentication['refseq_importer.run_refseq_importer'] = 'required'  # noqa
+        self.rpc_service.add(impl_refseq_importer.run_single_import,
+                             name='refseq_importer.run_single_import',
+                             types=[dict])
+        self.method_authentication['refseq_importer.run_single_import'] = 'required'  # noqa
         self.rpc_service.add(impl_refseq_importer.status,
                              name='refseq_importer.status',
                              types=[dict])

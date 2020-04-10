@@ -80,7 +80,7 @@ class RefseqImporterTest(unittest.TestCase):
         # Check returned data with
         # self.assertEqual(ret[...], ...) or other unittest methods
         ret = self.serviceImpl.run_refseq_importer(self.ctx, {
-            'workspace_name': "ReferenceDataManager",
+            'wsname': "ReferenceDataManager",
             'wsid': 15792
         })
         print('ret', ret)

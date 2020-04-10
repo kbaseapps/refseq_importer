@@ -4,12 +4,11 @@ import plyvel
 import logging
 import os
 import json
-import shutil
-import concurrent.futures
 
 MAX_WORKERS = int(os.environ.get('MAX_THREAD_WORKERS', 5))
+_BATCH_SIZE = int(os.environ.get('BATCH_SIZE', 16))
 
-from installed_clients.GenomeFileUtilClient import GenomeFileUtil
+from installed_clients.KBParallelClient import KBParallel
 from refseq_importer.utils.run_import import run_import
 from refseq_importer.utils.db_update_entries import db_set_error, db_set_done
 #END_HEADER
@@ -32,7 +31,7 @@ class refseq_importer:
     ######################################### noqa
     VERSION = "0.0.1"
     GIT_URL = "https://github.com/kbaseapps/refseq_importer"
-    GIT_COMMIT_HASH = "82d0dcc15d0063b3f2558e49cdf31f79876d105b"
+    GIT_COMMIT_HASH = "17d6c3762c7a6a42f82cea08007341f9da090754"
 
     #BEGIN_CLASS_HEADER
     #END_CLASS_HEADER
@@ -42,7 +41,7 @@ class refseq_importer:
     def __init__(self, config):
         #BEGIN_CONSTRUCTOR
         self.callback_url = os.environ['SDK_CALLBACK_URL']
-        self.shared_folder = config['scratch']
+        self.scratch = config['scratch']
         logging.basicConfig(format='%(created)s %(levelname)s: %(message)s',
                             level=logging.INFO)
         #END_CONSTRUCTOR
@@ -51,7 +50,6 @@ class refseq_importer:
 
     def run_refseq_importer(self, ctx, params):
         """
-        This example function accepts any number of parameters and returns results in a KBaseReport
         :param params: instance of mapping from String to unspecified object
         :returns: instance of type "ReportResults" -> structure: parameter
            "report_name" of String, parameter "report_ref" of String
@@ -61,59 +59,76 @@ class refseq_importer:
         #BEGIN run_refseq_importer
         db_path = '/kb/module/work/import_state'
         db = plyvel.DB(db_path)
-        batch = []
-        with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-            for (accession, json_bytes) in db:
-                accession = accession.decode()
-                json_dict = json.loads(json_bytes.decode())
-                if json_dict['status'] == 'finished':
-                    print(f'{accession} already completed')
-                    continue
-                if json_dict['status'] == 'error':
-                    print(f'{accession} had an error before: {json_bytes}')
-                    continue
-                else:
-                    batch.append((accession, json_dict))
-                if len(batch) >= 4:
-                    print(f'Submitting import jobs for: {batch}"')
-                    # List of pairs of (accession, future)
-                    futures = [
-                        (
-                            accession,
-                            executor.submit(
-                                run_import,
-                                self.callback_url,
-                                self.shared_folder,
-                                params,
-                                accession,
-                                json_dict
-                            )
-                        )
-                        for (accession, json_dict)
-                        in batch
-                    ]
-                    for (accession, future) in futures:
-                        try:
-                            future.result(timeout=600)
-                            db_set_done(db, accession)
-                            print(f"{accession} successfully completed")
-                        except concurrent.futures.TimeoutError:
-                            db_set_error(db, accession, "Timed out")
-                            print(f"{accession} timed out and failed to import.")
-                        except Exception as err:
-                            db_set_error(db, accession, str(err))
-                            print(f"{accession} failed to import with error: {err}.")
-                    batch = []
-                    # Keep disk usage low
-                    print('Removing and recreating the temp directory..')
-                    shutil.rmtree(self.shared_folder)
-                    os.makedirs(self.shared_folder, exist_ok=True)
+        tasks = []
+        parallel_runner = KBParallel(self.callback_url)
+        for (accession, json_bytes) in db:
+            accession = accession.decode()
+            json_dict = json.loads(json_bytes.decode())
+            if json_dict['status'] == 'finished':
+                print(f'{accession} already completed')
+                continue
+            if json_dict['status'] == 'error':
+                print(f'{accession} had an error before: {json_bytes}')
+                continue
+            else:
+                tasks.append({
+                    'module_name': 'refseq_importer',
+                    'function_name': 'run_single_import',
+                    'version': 'dev',
+                    'parameters': {
+                        'wsid': params['wsid'],
+                        'wsname': params['wsname'],
+                        'import_data': json_dict
+                    }
+                })
+            if len(tasks) >= _BATCH_SIZE:
+                batch_run_params = {
+                    'tasks': tasks,
+                    'runner': 'parallel',
+                    'concurrent_local_tasks': 2,
+                    'concurrent_njsw_tasks': 2,
+                    'max_retries': 3
+                }
+                for result in parallel_runner.run_batch(batch_run_params)['results']:
+                    print('xyz result!', result)
+                    if result['is_error']:
+                        db_set_error(db, accession, result['result_package']['error'])
+                    else:
+                        db_set_done(db, result['result'][0]['accession'])
+                tasks = []
         output = {}  # type: dict
         #END run_refseq_importer
 
         # At some point might do deeper type checking...
         if not isinstance(output, dict):
             raise ValueError('Method run_refseq_importer return value ' +
+                             'output is not type dict as required.')
+        # return the results
+        return [output]
+
+    def run_single_import(self, ctx, params):
+        """
+        :param params: instance of mapping from String to unspecified object
+        :returns: instance of type "ReportResults" -> structure: parameter
+           "report_name" of String, parameter "report_ref" of String
+        """
+        # ctx is the context object
+        # return variables are: output
+        #BEGIN run_single_import
+        # Validation is minimal. This module is for internal developer use.
+        for key in ['workspace_name', 'wsid', 'objref', 'import_data']:
+            if key not in params:
+                raise RuntimeError(f'{key} required in params')
+        wsid = params['wsid']
+        wsname = params['wsname']
+        import_data = params['import_data']
+        run_import(self.callback_url, self.scratch, wsid, wsname, import_data)
+        output = {'accession': import_data['acc']}
+        #END run_single_import
+
+        # At some point might do deeper type checking...
+        if not isinstance(output, dict):
+            raise ValueError('Method run_single_import return value ' +
                              'output is not type dict as required.')
         # return the results
         return [output]
