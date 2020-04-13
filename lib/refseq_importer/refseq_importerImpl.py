@@ -5,7 +5,7 @@ import logging
 import os
 import json
 
-MAX_WORKERS = int(os.environ.get('MAX_THREAD_WORKERS', 5))
+# KBParallel number of parallel tasks to run
 _BATCH_SIZE = int(os.environ.get('BATCH_SIZE', 16))
 
 from installed_clients.KBParallelClient import KBParallel
@@ -87,10 +87,9 @@ class refseq_importer:
                     'runner': 'parallel',
                     'concurrent_local_tasks': 2,
                     'concurrent_njsw_tasks': 2,
-                    'max_retries': 3
+                    'max_retries': 0
                 }
                 for result in parallel_runner.run_batch(batch_run_params)['results']:
-                    print('xyz result!', result)
                     if result['is_error']:
                         db_set_error(db, accession, result['result_package']['error'])
                     else:
