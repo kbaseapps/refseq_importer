@@ -87,7 +87,7 @@ class refseq_importer:
                     'tasks': tasks,
                     'runner': 'parallel',
                     'concurrent_local_tasks': 2,
-                    'concurrent_njsw_tasks': 2,
+                    'concurrent_njsw_tasks': 8,
                     'max_retries': 0
                 }
                 for result in parallel_runner.run_batch(batch_run_params)['results']:
