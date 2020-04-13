@@ -11,6 +11,7 @@ _BATCH_SIZE = int(os.environ.get('BATCH_SIZE', 16))
 from installed_clients.KBParallelClient import KBParallel
 from refseq_importer.utils.run_import import run_import
 from refseq_importer.utils.db_update_entries import db_set_error, db_set_done
+from refseq_importer.utils.get_path import get_path
 #END_HEADER
 
 
@@ -90,10 +91,13 @@ class refseq_importer:
                     'max_retries': 0
                 }
                 for result in parallel_runner.run_batch(batch_run_params)['results']:
+                    acc = get_path(result, ('result_package', 'result', 0, 'accession'))
                     if result['is_error']:
                         db_set_error(db, accession, result['result_package']['error'])
+                    elif acc:
+                        db_set_done(db, result['result_package']['result'][0]['accession'])
                     else:
-                        db_set_done(db, result['result'][0]['accession'])
+                        print('Unable to determine the job result in {result}. Continuing..')
                 tasks = []
         output = {}  # type: dict
         #END run_refseq_importer
