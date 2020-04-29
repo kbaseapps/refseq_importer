@@ -16,8 +16,6 @@ def main():
         if obj_type not in counts:
             counts[obj_type] = 0
         counts[obj_type] += 1
-        if obj_type == "KBaseGenomes.Genome-11.0":
-            print(obj_info)
     print('Total counts by type:')
     print(json.dumps(counts, indent=2))
 

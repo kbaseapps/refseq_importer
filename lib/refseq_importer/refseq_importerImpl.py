@@ -88,12 +88,15 @@ class refseq_importer:
                     'runner': 'parallel',
                     'concurrent_local_tasks': 2,
                     'concurrent_njsw_tasks': 8,
-                    'max_retries': 0
+                    'max_retries': 0,
                 }
                 for result in parallel_runner.run_batch(batch_run_params)['results']:
                     acc = get_path(result, ('result_package', 'result', 0, 'accession'))
+                    err = get_path(result, ('result_package', 'result', 0, 'error'))
                     if result['is_error']:
                         db_set_error(db, accession, result['result_package']['error'])
+                    elif err:
+                        db_set_error(db, accession, err)
                     elif acc:
                         db_set_done(db, result['result_package']['result'][0]['accession'])
                     else:
@@ -125,8 +128,11 @@ class refseq_importer:
         wsid = params['wsid']
         wsname = params['wsname']
         import_data = params['import_data']
-        run_import(self.callback_url, self.scratch, wsid, wsname, import_data)
-        output = {'accession': import_data['acc']}
+        try:
+            run_import(self.callback_url, self.scratch, wsid, wsname, import_data)
+            output = {'accession': import_data['acc']}
+        except Exception as err:
+            output = {'error': str(err)}
         #END run_single_import
 
         # At some point might do deeper type checking...
