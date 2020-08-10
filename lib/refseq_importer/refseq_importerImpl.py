@@ -77,15 +77,15 @@ class refseq_importer:
                 try:
                     result = self.run_single_import(ctx, params)[0]
                 except Exception as err:
-                    params(f"{accession} had an error")
+                    print(f"{accession} had an error")
                     db_set_error(db, accession, str(err))
                     continue
                 if 'error' in result:
-                    params(f"{accession} had an error")
+                    print(f"{accession} had an error")
                     db_set_error(db, accession, result['error'])
                     continue
                 if 'accession' in result:
-                    params(f"{accession} successfully imported")
+                    print(f"{accession} successfully imported")
                     db_set_done(db, accession)
         output = {}  # type: dict
         #END run_refseq_importer
