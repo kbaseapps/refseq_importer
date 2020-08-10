@@ -8,7 +8,6 @@ import json
 # KBParallel number of parallel tasks to run
 _BATCH_SIZE = int(os.environ.get('BATCH_SIZE', 16))
 
-from installed_clients.KBParallelClient import KBParallel
 from refseq_importer.utils.run_import import run_import
 from refseq_importer.utils.db_update_entries import db_set_error, db_set_done
 from refseq_importer.utils.get_path import get_path
@@ -60,8 +59,6 @@ class refseq_importer:
         #BEGIN run_refseq_importer
         db_path = '/kb/module/work/import_state'
         db = plyvel.DB(db_path)
-        tasks = []
-        parallel_runner = KBParallel(self.callback_url)
         for (accession, json_bytes) in db:
             accession = accession.decode()
             json_dict = json.loads(json_bytes.decode())
@@ -69,39 +66,27 @@ class refseq_importer:
                 print(f'{accession} already completed')
                 continue
             if json_dict['status'] == 'error':
-                print(f'{accession} had an error before: {json_bytes}')
+                print(f'{accession} had an error before')
                 continue
             else:
-                tasks.append({
-                    'module_name': 'refseq_importer',
-                    'function_name': 'run_single_import',
-                    'version': 'dev',
-                    'parameters': {
-                        'wsid': params['wsid'],
-                        'wsname': params['wsname'],
-                        'import_data': json_dict
-                    }
-                })
-            if len(tasks) >= _BATCH_SIZE:
-                batch_run_params = {
-                    'tasks': tasks,
-                    'runner': 'parallel',
-                    'concurrent_local_tasks': 2,
-                    'concurrent_njsw_tasks': 8,
-                    'max_retries': 0,
+                params = {
+                    'wsid': params['wsid'],
+                    'wsname': params['wsname'],
+                    'import_data': json_dict
                 }
-                for result in parallel_runner.run_batch(batch_run_params)['results']:
-                    acc = get_path(result, ('result_package', 'result', 0, 'accession'))
-                    err = get_path(result, ('result_package', 'result', 0, 'error'))
-                    if result['is_error']:
-                        db_set_error(db, accession, result['result_package']['error'])
-                    elif err:
-                        db_set_error(db, accession, err)
-                    elif acc:
-                        db_set_done(db, result['result_package']['result'][0]['accession'])
-                    else:
-                        print('Unable to determine the job result in {result}. Continuing..')
-                tasks = []
+                try:
+                    result = self.run_single_import(ctx, params)[0]
+                except Exception as err:
+                    params(f"{accession} had an error")
+                    db_set_error(db, accession, str(err))
+                    continue
+                if 'error' in result:
+                    params(f"{accession} had an error")
+                    db_set_error(db, accession, result['error'])
+                    continue
+                if 'accession' in result:
+                    params(f"{accession} successfully imported")
+                    db_set_done(db, accession)
         output = {}  # type: dict
         #END run_refseq_importer
 
