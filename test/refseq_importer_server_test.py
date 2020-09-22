@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import os
-import time
 import unittest
 from configparser import ConfigParser
 
@@ -54,33 +53,14 @@ class RefseqImporterTest(unittest.TestCase):
         cls.serviceImpl = refseq_importer(cls.cfg)
         cls.scratch = cls.cfg['scratch']
         cls.callback_url = os.environ['SDK_CALLBACK_URL']
-        suffix = int(time.time() * 1000)
-        cls.wsName = "test_ContigFilter_" + str(suffix)
-        ret = cls.wsClient.create_workspace({'workspace': cls.wsName})  # noqa
+
+    def test_run_import(self):
         # Initialize the local state database
         # Does not overwrite previous entries
         print('Initializing the local state database...')
         init_db()
-
-    @classmethod
-    def tearDownClass(cls):
-        if hasattr(cls, 'wsName'):
-            cls.wsClient.delete_workspace({'workspace': cls.wsName})
-            print('Test workspace was deleted')
-
-    # NOTE: According to Python unittest naming rules test method names should start from 'test'. # noqa
-    def test_your_method(self):
-        # Prepare test objects in workspace if needed using
-        # self.getWsClient().save_objects({'workspace': self.getWsName(),
-        #                                  'objects': []})
-        #
-        # Run your method by
-        # ret = self.getImpl().your_method(self.getContext(), parameters...)
-        #
-        # Check returned data with
-        # self.assertEqual(ret[...], ...) or other unittest methods
-        ret = self.serviceImpl.run_refseq_importer(self.ctx, {
+        # Run the imports
+        self.serviceImpl.run_refseq_importer(self.ctx, {
             'wsname': "ReferenceDataManager",
             'wsid': 15792
         })
-        print('ret', ret)

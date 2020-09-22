@@ -47,7 +47,6 @@ class refseq_importer:
         #END_CONSTRUCTOR
         pass
 
-
     def run_refseq_importer(self, ctx, params):
         """
         :param params: instance of mapping from String to unspecified object
@@ -114,7 +113,8 @@ class refseq_importer:
         wsname = params['wsname']
         import_data = params['import_data']
         try:
-            run_import(self.callback_url, self.scratch, wsid, wsname, import_data)
+            run_import(self.callback_url, self.scratch, wsid, wsname,
+                       import_data)
             output = {'accession': import_data['acc']}
         except Exception as err:
             output = {'error': str(err)}
@@ -126,12 +126,15 @@ class refseq_importer:
                              'output is not type dict as required.')
         # return the results
         return [output]
+
     def status(self, ctx):
         #BEGIN_STATUS
-        returnVal = {'state': "OK",
-                     'message': "",
-                     'version': self.VERSION,
-                     'git_url': self.GIT_URL,
-                     'git_commit_hash': self.GIT_COMMIT_HASH}
+        returnVal = {
+            'state': "OK",
+            'message': "",
+            'version': self.VERSION,
+            'git_url': self.GIT_URL,
+            'git_commit_hash': self.GIT_COMMIT_HASH
+        }
         #END_STATUS
         return [returnVal]
