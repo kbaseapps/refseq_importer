@@ -3,14 +3,11 @@
 import plyvel
 import logging
 import os
+import time
 import json
 
-# KBParallel number of parallel tasks to run
-_BATCH_SIZE = int(os.environ.get('BATCH_SIZE', 16))
-
-from refseq_importer.utils.run_import import run_import
-from refseq_importer.utils.db_update_entries import db_set_error, db_set_done
-from refseq_importer.utils.get_path import get_path
+from refseq_importer.utils.run_import import run_import, run_batch_import
+from refseq_importer.utils.load_config import config
 #END_HEADER
 
 
@@ -58,6 +55,7 @@ class refseq_importer:
         #BEGIN run_refseq_importer
         db_path = '/kb/module/work/import_state'
         db = plyvel.DB(db_path)
+        jobs = []
         for (accession, json_bytes) in db:
             accession = accession.decode()
             json_dict = json.loads(json_bytes.decode())
@@ -73,19 +71,15 @@ class refseq_importer:
                     'wsname': params['wsname'],
                     'import_data': json_dict
                 }
-                try:
-                    result = self.run_single_import(ctx, params)[0]
-                except Exception as err:
-                    print(f"{accession} had an error")
-                    db_set_error(db, accession, str(err))
-                    continue
-                if 'error' in result:
-                    print(f"{accession} had an error")
-                    db_set_error(db, accession, result['error'])
-                    continue
-                if 'accession' in result:
-                    print(f"{accession} successfully imported")
-                    db_set_done(db, accession)
+                jobs.append((accession, params))
+                if len(jobs) == config['batch_size']:
+                    print('*' * 80)
+                    print(f'Running {len(jobs)} jobs..')
+                    start = time.time()
+                    run_batch_import(jobs, self, ctx, db)
+                    jobs = []
+                    print(f'..Done running {len(jobs)} jobs in {time.time() - start}s.')
+                    print('*' * 80)
         output = {}  # type: dict
         #END run_refseq_importer
 

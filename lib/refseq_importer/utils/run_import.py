@@ -2,7 +2,44 @@ import time
 import requests
 import os
 import json
+from typing import Dict
+from concurrent.futures import ThreadPoolExecutor, as_completed, Future
+
+from refseq_importer.utils.db_update_entries import db_set_error, db_set_done
 from installed_clients.GenomeFileUtilClient import GenomeFileUtil
+from refseq_importer.utils.load_config import config
+
+
+def run_batch_import(jobs: Dict[Future, str], impl, ctx, db):
+    """
+    Run a batch of import jobs using threading and process the results
+    """
+    # Run the threads
+    with ThreadPoolExecutor(max_workers=config['batch_size']) as executor:
+        # Dictionary of {future: accession}
+        # Following this example:
+        # https://docs.python.org/3/library/concurrent.futures.html#threadpoolexecutor-example
+        futures = dict()
+        # Start all the threads
+        for (accession, params) in jobs:
+            future = executor.submit(impl.run_single_import, ctx, params)
+            futures[future] = accession
+        # Process all the results
+        for future in as_completed(futures):
+            accession = futures[future]
+            try:
+                data = future.result()
+            except Exception as exc:
+                print(f"{accession} had an error")
+                db_set_error(db, accession, str(exc))
+                continue
+            result = data[0]
+            if 'error' in result:
+                print(f"{accession} had an error")
+                db_set_error(db, accession, result['error'])
+            elif 'accession' in result:
+                print(f"{accession} successfully imported")
+                db_set_done(db, accession)
 
 
 def run_import(callback_url, scratch, wsid, wsname, import_data):
@@ -40,7 +77,7 @@ def run_import(callback_url, scratch, wsid, wsname, import_data):
     if resp.ok:
         info = resp.json()['result'][0]['data'][0]['info']
         kbtype = info[2]
-        if kbtype == 'KBaseGenomes.Genome-17.0':
+        if kbtype == config['genome_type_version']:
             print(f'Already imported {accession}')
             return
         metadata = info[-1]

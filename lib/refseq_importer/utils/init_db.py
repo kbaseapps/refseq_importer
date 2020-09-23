@@ -22,9 +22,9 @@ def init_db():
                     'src': source
                 }).encode()
                 db.put(key, json_bytes)
-                print(accession, 'saved to the db')
+                print(accession, 'added to the local db')
             else:
-                print(accession, 'already exists')
+                print(accession, 'has an entry in the local db')
 
 
 if __name__ == '__main__':

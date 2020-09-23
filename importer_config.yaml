@@ -1,0 +1,5 @@
+batch_size: 3
+refdata_workspace:
+  id: 15792
+  name: ReferenceDataManager
+genome_type_version: KBaseGenomes.Genome-11.0
