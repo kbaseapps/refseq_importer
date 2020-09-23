@@ -77,8 +77,8 @@ class refseq_importer:
                     print(f'Running {len(jobs)} jobs..')
                     start = time.time()
                     run_batch_import(jobs, self, ctx, db)
-                    jobs = []
                     print(f'..Done running {len(jobs)} jobs in {time.time() - start}s.')
+                    jobs = []
                     print('*' * 80)
         output = {}  # type: dict
         #END run_refseq_importer
