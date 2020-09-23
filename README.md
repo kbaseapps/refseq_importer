@@ -8,8 +8,8 @@ You can also learn more about the apps implemented in this module from its [cata
 
 ## Run
 
-* Set your environment URLs and tokens in `test_local/test.cfg`
-* Set the correct workspace ID to import into in `test/refseq_importer_server_test.py`
-* Run with `kb-sdk test` to start performing the import.
+1. Modify the settings found in `importer_config.yaml` to match your environment.
+1. Set the URLs and tokens within `test_local/test.cfg`
+1. Run `kb-sdk test` to start performing the import
 
 I recommend running in a screen or tmux session
