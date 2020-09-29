@@ -1,5 +1,6 @@
-batch_size: 3
+batch_size: 1
 refdata_workspace:
-  id: 15792
+  id: 19217
   name: ReferenceDataManager
 genome_type_version: KBaseGenomes.Genome-11.0
+kbase_endpoint: https://kbase.us/services

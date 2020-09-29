@@ -1,6 +1,5 @@
 import time
 import requests
-import os
 import json
 from typing import Dict
 from concurrent.futures import ThreadPoolExecutor, as_completed, Future
@@ -70,20 +69,21 @@ def run_import(callback_url, scratch, wsid, wsname, import_data):
             'no_data': 1
         }]
     }
-    endpoint = os.environ.get('KBASE_ENDPOINT', 'https://ci.kbase.us/services').strip('/')
-    ws_url = endpoint + '/ws'
+    ws_url = config['kbase_endpoint'] + '/ws'
     resp = requests.post(ws_url, data=json.dumps(reqbody))
     assm = None
     if resp.ok:
         info = resp.json()['result'][0]['data'][0]['info']
         kbtype = info[2]
+        print('Existing object found with type: ', kbtype)
         if kbtype == config['genome_type_version']:
             print(f'Already imported {accession}')
             return
+        print('No match on type, using previous assembly')
         metadata = info[-1]
         assm = metadata.get('Assembly Object')
     else:
-        print('No existing genome object found')
+        print('No existing genome object found. Response was: ', resp.text)
     print(f'Running gfu.genbank_to_genome for {accession} with assembly {assm}')
     try:
         result = gfu.genbank_to_genome({
