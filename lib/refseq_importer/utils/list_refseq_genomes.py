@@ -1,10 +1,12 @@
 """
 Writes a TSV file of the genbank URL and taxonomy ID for every Refseq genome in
-these categories: bacteria, archaea, plant, and fungi
+each of the categories from the configuration.
 """
 from ftplib import FTP
 
-_CATEGORIES = ["archaea", "bacteria", "plant", "fungi"]
+from refseq_importer.utils.load_config import config
+
+_CATEGORIES = config['categories']
 _HOST = "ftp.ncbi.nlm.nih.gov"
 _BASE_PATH = "/genomes/refseq"
 _SUMMARY_FILENAME = "assembly_summary.txt"

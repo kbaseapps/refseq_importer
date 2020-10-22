@@ -4,3 +4,4 @@ refdata_workspace:
   name: ReferenceDataManager
 genome_type_version: KBaseGenomes.Genome-11.0
 kbase_endpoint: https://kbase.us/services
+categories: ["archaea", "bacteria", "plant", "fungi"]
