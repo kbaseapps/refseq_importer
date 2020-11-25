@@ -19,7 +19,7 @@ WORKDIR /kb/module
 
 RUN make all
 
-RUN pip install --upgrade pip plyvel
+RUN pip install --upgrade pip plyvel==1.2.0
 
 ENTRYPOINT [ "./scripts/entrypoint.sh" ]
 
