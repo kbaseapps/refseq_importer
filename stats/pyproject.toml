@@ -8,6 +8,7 @@ license = "MIT"
 [tool.poetry.dependencies]
 python = "^3.7"
 kbase-workspace-client = "0.0.1"
+plyvel = "^1.3.0"
 
 [tool.poetry.dev-dependencies]
 
