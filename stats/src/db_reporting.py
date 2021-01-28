@@ -51,12 +51,5 @@ def main():
         print(f'Wrote pending accessions list to {pending_path}')
 
 
-def reset_errors():
-    """
-    Reset status entries for certain errors.
-    """
-    pass
-
-
 if __name__ == '__main__':
     main()
